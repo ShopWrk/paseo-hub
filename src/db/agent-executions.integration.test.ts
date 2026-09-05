@@ -1225,6 +1225,7 @@ describe("agent execution PostgreSQL repository", () => {
         outputContext: {},
         configurationRevisionId: fixture.execution.configurationRevisionId,
         hubConfig: {},
+        conversation: null,
         invocation: {
           status: "rejected" as const,
           prompt: "repo=unknown investigate",
@@ -1241,6 +1242,7 @@ describe("agent execution PostgreSQL repository", () => {
       const secondRejected: RejectedTriggerProviderMatch = {
         ...rejected,
         triggerName: "second-rejected-route",
+        conversation: null,
         invocation: {
           ...rejected.invocation,
           reason: "duplicate input repo",
@@ -1650,6 +1652,7 @@ function phaseOneMatch(
     outputContext: base.outputContext,
     configurationRevisionId,
     hubConfig: workflowConfiguration(triggerName, stepId),
+    conversation: null,
     invocation: {
       status: "accepted",
       prompt: "run",
@@ -1682,6 +1685,7 @@ function postgresDeadlineEngine(
               outputContext: { provider: "phase-five" },
               configurationRevisionId,
               hubConfig: configuration,
+              conversation: null,
               invocation: {
                 status: "accepted",
                 prompt: "run",
@@ -1707,6 +1711,7 @@ function restartMatch(configurationRevisionId: string): TriggerProviderMatch {
     outputContext: { provider: "test" },
     configurationRevisionId,
     hubConfig: configuration,
+    conversation: null,
     invocation: {
       status: "accepted",
       prompt: "repo=hub work",

@@ -337,6 +337,13 @@
       "when": 1788641751413,
       "tag": "0047_absurd_mongoose",
       "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1788667474943,
+      "tag": "0048_slippery_terrax",
+      "breakpoints": true
     }
   ]
 }

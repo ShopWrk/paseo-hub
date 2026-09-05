@@ -1,3 +1,4 @@
+import { DaemonAgents } from "./agents/index.js";
 import assert from "node:assert/strict";
 import { describe, it, vi } from "vitest";
 import { deriveAgentExecutionCompletionToken } from "../agent-executions/completion-token.js";
@@ -1068,6 +1069,9 @@ class ManualDeadlineClock implements ExecutionDeadlineClock {
 }
 
 class DispatchConnection implements DaemonConnection {
+  readonly agents = new DaemonAgents(() => {
+    throw new Error("Native agents are not used by this legacy fixture");
+  });
   private readonly handlers = new Set<DaemonEventHandler>();
 
   on(handler: DaemonEventHandler): () => void {
@@ -1117,6 +1121,9 @@ function createLifecycle(
 }
 
 class AcknowledgementConnection implements DaemonConnection {
+  readonly agents = new DaemonAgents(() => {
+    throw new Error("Native agents are not used by this legacy fixture");
+  });
   readonly actions: DaemonExecutionControlOptions["action"][] = [];
   private readonly handlers = new Set<DaemonEventHandler>();
 
