@@ -14,6 +14,7 @@ import type {
 } from "../../providers/registration.js";
 import { createSlackRegistration } from "../../providers/slack/index.js";
 import type { TriggerHandler, TriggerProvider, TriggerSource } from "../../triggers/index.js";
+import { linearReplyOutputTool } from "../../triggers/linear/reply.js";
 import type {
   Provider,
   ProviderApplicationConfiguration,
@@ -405,7 +406,7 @@ export class DynamicProviderRuntime implements ProviderRuntimeOwner {
           : [
               {
                 type: `${provider}.reply`,
-                tool: replyOutputTool,
+                tool: provider === "linear" ? linearReplyOutputTool : replyOutputTool,
                 available: outputContextProvider(provider),
                 execute: (input) => {
                   const active = slot.active;
