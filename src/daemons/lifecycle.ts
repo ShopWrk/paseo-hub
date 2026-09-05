@@ -1016,6 +1016,9 @@ export class DaemonDispatchLifecycle {
       this.clearExecutionDeadline(executionId);
       this.releaseExecutionResources(executionId);
       this.startedExecutions.delete(executionId);
+      const execution = await this.options.database.findAgentExecutionById(executionId);
+      if (execution === undefined) throw new Error(`agent execution not found: ${executionId}`);
+      await this.notifyExecutionTerminal(execution);
       this.completionWatchersByExecution.get(executionId)?.();
     }
     await this.recoverPendingHubActions();
