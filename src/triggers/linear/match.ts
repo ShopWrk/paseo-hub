@@ -33,7 +33,21 @@ export function readLinearAgentSessionInvocationParserMessage(
   event: NormalizedLinearAgentSessionEvent,
   filter: TriggerFilter | undefined,
 ): string {
-  return readLinearInvocationParserMessage(event.parserMessage, filter);
+  return removeLeadingAgentSessionMention(
+    readLinearInvocationParserMessage(event.parserMessage, filter),
+  );
+}
+
+/**
+ * Linear creates a native Agent Session from a comment that starts with the app mention. The
+ * session webhook identifies the target app separately, so the leading mention is routing syntax,
+ * not part of the user's typed inputs. Its display name is not included as a separate webhook
+ * field, which means the parser has to consume the first mention token generically.
+ */
+function removeLeadingAgentSessionMention(message: string): string {
+  const leading = message.trimStart();
+  const mention = /^@\S+(?:\s+|$)/u.exec(leading);
+  return mention === null ? message : leading.slice(mention[0].length);
 }
 
 function readLinearInvocationParserMessage(
