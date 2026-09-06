@@ -48,18 +48,40 @@ describe("organization trigger store", () => {
     assert.equal((await database.listProjectsForOrganization("org")).length, 0);
   });
 
-  it.each([
-    ["a relative working directory", "cwd: workspace", /absolute path/iu],
-    ["an omitted execution mode", "provider: test, mode: full-access", /mode.*required/iu],
-  ])("rejects %s at the authoring boundary", async (_name, authored, expected) => {
+  it("allows an omitted execution mode for providers that do not expose modes", async () => {
+    const database = createMemoryDatabase({ organizationIds: ["org"] });
+    await database.issueEnrollmentToken({
+      id: "token",
+      verifier: "token-verifier",
+      organizationId: "org",
+      expiresAt: new Date("2026-08-29T22:00:00.000Z"),
+      consumedAt: null,
+    });
+    await database.enrollDaemon({
+      daemonId: "daemon-00000000",
+      idempotencyKey: "daemon-key",
+      suggestedSlug: "devbox",
+      tokenVerifier: "token-verifier",
+      serverId: "server",
+      daemonPublicKey: "public-key",
+      credentialVerifier: "credential-verifier",
+      permissions: ["hub.execute"],
+      now: new Date("2026-08-29T21:00:00.000Z"),
+    });
+    const store = new OrganizationTriggerStore(database, "org");
+    const yaml = triggerYaml(true).replace(", mode: full-access", "");
+
+    const saved = await store.save({ yaml, userId: null });
+
+    assert.equal(saved.name, "manual-task");
+  });
+
+  it("rejects a relative working directory at the authoring boundary", async () => {
     const database = createMemoryDatabase({ organizationIds: ["org"] });
     const store = new OrganizationTriggerStore(database, "org");
-    const yaml = triggerYaml(true).replace(
-      authored === "cwd: workspace" ? "cwd: /workspace" : authored,
-      authored === "cwd: workspace" ? authored : "provider: test",
-    );
+    const yaml = triggerYaml(true).replace("cwd: /workspace", "cwd: workspace");
 
-    await assert.rejects(store.save({ yaml, userId: null }), expected);
+    await assert.rejects(store.save({ yaml, userId: null }), /absolute path/iu);
   });
 });
 
