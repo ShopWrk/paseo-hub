@@ -1101,7 +1101,7 @@ export class DaemonDispatchLifecycle {
     if (intent === null || this.options.publicBaseUrl === undefined)
       throw new Error("execution launch intent cannot be recovered");
     if (intent.continuation !== undefined) {
-      if (current.daemonAgentId === null) {
+      if (current.status === "spawning" || current.daemonAgentId === null) {
         await this.dispatchSession({
           daemonId: daemon.id,
           executionId: current.id,

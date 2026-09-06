@@ -1,4 +1,6 @@
 import { DaemonAgents } from "./agents/index.js";
+import type { AgentConnection, AgentEvent, AgentSnapshot } from "./agents/index.js";
+import { AgentSessions } from "../agent-sessions/index.js";
 import assert from "node:assert/strict";
 import { describe, it, vi } from "vitest";
 import { deriveAgentExecutionCompletionToken } from "../agent-executions/completion-token.js";
@@ -78,6 +80,89 @@ describe("durable Hub action acknowledgement state", () => {
       component: "daemons",
       canary,
     });
+    await lifecycle.stop();
+  });
+
+  it("replays an attached session arrival that crashed before prompt acknowledgement", async () => {
+    const database = createMemoryDatabase();
+    const connection = new SessionRecoveryConnection();
+    const executionId = "00000000-0000-4000-8000-0000000000f2";
+    const deadlineAt = new Date(Date.now() + 60_000);
+    const intent: LaunchMachineIntent = {
+      kind: "launch_machine",
+      organizationId: "organization-session-recovery",
+      projectId: "project-session-recovery",
+      triggerRunId: "trigger-session-recovery",
+      triggerName: "session-recovery",
+      environmentName: "runner",
+      environment: {
+        kind: "daemon",
+        daemonId: DAEMON_ID,
+        authoredSlug: "daemon-lifecycle",
+        cwd: "/repo",
+      },
+      agent: { provider: "codex" },
+      prompt: "recover this arrival",
+      allowOutputs: [],
+      autoArchive: true,
+      triggerContext: {},
+      outputContext: {},
+      configurationRevisionId: "revision-session-recovery",
+      hubConfig: {},
+      continuation: {
+        key: "conversation:session-recovery",
+        compatibility: { target: "runner" },
+        agent: { inherit: false, compatibility: { provider: "codex" } },
+      },
+      deadlineAt,
+    };
+    await database.insertAgentExecution({
+      id: executionId,
+      organizationId: intent.organizationId,
+      projectId: intent.projectId,
+      machineId: null,
+      daemonId: DAEMON_ID,
+      triggerContext: intent.triggerContext,
+      outputContext: intent.outputContext,
+      configurationRevisionId: intent.configurationRevisionId,
+      deadlineAt,
+      launchIntent: intent,
+    });
+    const sessions = new AgentSessions(
+      database,
+      "session-recovery-secret",
+      "http://hub.test",
+      new OutputExecutorRegistry(),
+    );
+    await sessions.dispatch({
+      executionId,
+      intent,
+      connection: connection.agents,
+      onEvent: () => {},
+      createOptions: () =>
+        Promise.resolve({
+          executionId,
+          provider: "codex",
+          cwd: "/repo",
+          prompt: intent.prompt,
+          env: {},
+          toolPolicy: { preapproved: [] },
+        }),
+    });
+    connection.agents.sends.length = 0;
+    const lifecycle = createDaemonDispatchLifecycle({
+      database,
+      connectionForDaemon: () => connection,
+      completionTokenSecret: "session-recovery-secret",
+      publicBaseUrl: "http://hub.test",
+    });
+
+    await lifecycle.recoverDaemon(daemonRecord());
+
+    assert.deepEqual(connection.agents.sends, [
+      { agentId: AGENT_ID, messageId: executionId, text: intent.prompt },
+    ]);
+    assert.equal((await database.findAgentExecutionById(executionId))?.status, "running");
     await lifecycle.stop();
   });
 
@@ -1106,6 +1191,57 @@ class DispatchConnection implements DaemonConnection {
   async refreshProviderSnapshot(): Promise<never> {
     throw new Error("not used");
   }
+
+  async controlExecution(): Promise<void> {}
+}
+
+class SessionRecoveryAgents implements AgentConnection {
+  readonly sends: { agentId: string; messageId: string; text: string }[] = [];
+  private readonly snapshot: AgentSnapshot = {
+    id: AGENT_ID,
+    workspaceId: "workspace-session-recovery",
+    status: "idle",
+  };
+
+  async create(): Promise<AgentSnapshot> {
+    return this.snapshot;
+  }
+
+  async get(): Promise<AgentSnapshot> {
+    return this.snapshot;
+  }
+
+  async send(agentId: string, messageId: string, text: string): Promise<void> {
+    this.sends.push({ agentId, messageId, text });
+  }
+
+  async restore(): Promise<boolean> {
+    return true;
+  }
+
+  async control(): Promise<void> {}
+
+  async watch(_agentId: string, _listener: (event: AgentEvent) => void): Promise<() => void> {
+    return () => {};
+  }
+}
+
+class SessionRecoveryConnection implements DaemonConnection {
+  readonly agents = new SessionRecoveryAgents();
+
+  on(): () => void {
+    return () => {};
+  }
+
+  async createAgent(): Promise<never> {
+    throw new Error("not used");
+  }
+
+  async getProviderSnapshot(): Promise<never> {
+    throw new Error("not used");
+  }
+
+  async refreshProviderSnapshot(): Promise<void> {}
 
   async controlExecution(): Promise<void> {}
 }
