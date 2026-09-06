@@ -150,6 +150,15 @@ describe("durable Hub action acknowledgement state", () => {
         }),
     });
     connection.agents.sends.length = 0;
+    connection.agents.beforeSend = async () => {
+      connection.agents.emit({
+        type: "agent_update",
+        agent: { id: AGENT_ID, workspaceId: "workspace-session-recovery", status: "running" },
+        timestamp: new Date().toISOString(),
+      });
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      assert.equal((await database.findAgentExecutionById(executionId))?.status, "spawning");
+    };
     const lifecycle = createDaemonDispatchLifecycle({
       database,
       connectionForDaemon: () => connection,
@@ -1197,6 +1206,7 @@ class DispatchConnection implements DaemonConnection {
 
 class SessionRecoveryAgents implements AgentConnection {
   readonly sends: { agentId: string; messageId: string; text: string }[] = [];
+  beforeSend: (() => Promise<void>) | undefined;
   private readonly snapshot: AgentSnapshot = {
     id: AGENT_ID,
     workspaceId: "workspace-session-recovery",
@@ -1212,6 +1222,7 @@ class SessionRecoveryAgents implements AgentConnection {
   }
 
   async send(agentId: string, messageId: string, text: string): Promise<void> {
+    await this.beforeSend?.();
     this.sends.push({ agentId, messageId, text });
   }
 
@@ -1221,8 +1232,15 @@ class SessionRecoveryAgents implements AgentConnection {
 
   async control(): Promise<void> {}
 
-  async watch(_agentId: string, _listener: (event: AgentEvent) => void): Promise<() => void> {
-    return () => {};
+  private readonly listeners = new Set<(event: AgentEvent) => void>();
+
+  emit(event: AgentEvent): void {
+    for (const listener of this.listeners) listener(event);
+  }
+
+  async watch(_agentId: string, listener: (event: AgentEvent) => void): Promise<() => void> {
+    this.listeners.add(listener);
+    return () => this.listeners.delete(listener);
   }
 }
 

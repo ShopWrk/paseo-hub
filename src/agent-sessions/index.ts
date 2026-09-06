@@ -124,9 +124,16 @@ export class AgentSessions {
         session.agentId,
       );
       await this.database.attachExecutionToSession(input.executionId, id, action);
-      const unsubscribe = await input.connection.watch(session.agentId, input.onEvent);
+      const pendingEvents: AgentEvent[] = [];
+      let delivered = false;
+      const unsubscribe = await input.connection.watch(session.agentId, (event) => {
+        if (delivered) input.onEvent(event);
+        else pendingEvents.push(event);
+      });
       try {
         await input.connection.send(session.agentId, input.executionId, input.intent.prompt);
+        delivered = true;
+        for (const event of pendingEvents) input.onEvent(event);
       } catch (error) {
         unsubscribe();
         throw error;
