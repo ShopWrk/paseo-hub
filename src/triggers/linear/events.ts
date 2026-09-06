@@ -2,6 +2,8 @@ import { z } from "zod";
 import type { LinearIssueDetails } from "../../providers/linear/client.js";
 
 const LinearIdSchema = z.string().min(1);
+const LINEAR_AGENT_PROMPT_MAX_CHARS = 24_000;
+const LINEAR_AGENT_REQUEST_MAX_CHARS = 4_000;
 const LinearActorSchema = z.object({ id: LinearIdSchema, name: z.string().optional() });
 const LinearIssueSchema = z.object({
   id: LinearIdSchema,
@@ -361,7 +363,7 @@ function normalizeAgentSessionTurn(input: {
     return {
       activity,
       actor: normalizeActor(activityData?.["user"]) ?? actorFromUserId(activityData ?? {}),
-      prompt: activity.body,
+      prompt: boundedLinearAgentPrompt(activity.body, activity.body),
       parserMessage: activity.body,
       occurredAt: activity.createdAt,
       // The session's own source comment opened it and was handled when the session was created;
@@ -372,13 +374,13 @@ function normalizeAgentSessionTurn(input: {
 
   const rootComment = asRecord(input.session["comment"]);
   const directMessage = readString(rootComment?.["body"]);
-  const prompt = firstDefined(input.promptContext, directMessage, issuePrompt(input.issue));
-  const parserMessage = firstDefined(directMessage, prompt);
+  const rawPrompt = firstDefined(input.promptContext, directMessage, issuePrompt(input.issue));
+  const parserMessage = firstDefined(directMessage, rawPrompt);
   const occurredAt = firstDefined(
     readDate(input.payload["createdAt"]),
     readDate(input.session["createdAt"]),
   );
-  if (prompt === undefined || parserMessage === undefined || occurredAt === undefined) {
+  if (rawPrompt === undefined || parserMessage === undefined || occurredAt === undefined) {
     return undefined;
   }
   return {
@@ -388,7 +390,7 @@ function normalizeAgentSessionTurn(input: {
       normalizeActor(input.session["creator"]) ??
       actorFromId(input.session["creatorId"]) ??
       actorFromId(rootComment?.["userId"]),
-    prompt,
+    prompt: boundedLinearAgentPrompt(rawPrompt, directMessage),
     parserMessage,
     occurredAt,
     sourceCommentId: firstDefined(
@@ -397,6 +399,32 @@ function normalizeAgentSessionTurn(input: {
       readString(input.payload["sourceCommentId"]),
     ),
   };
+}
+
+/**
+ * Linear's canonical context can recursively embed a parent, its children, and related issues.
+ * Some model endpoints reject a single message above roughly 32K characters even when their
+ * advertised token window is larger. Keep the beginning of the canonical issue context and
+ * preserve the user's direct request at the end.
+ */
+function boundedLinearAgentPrompt(prompt: string, directMessage?: string): string {
+  if (prompt.length <= LINEAR_AGENT_PROMPT_MAX_CHARS) return prompt;
+
+  const request = directMessage?.trim();
+  let preservedTail: string;
+  if (request === undefined || request.length === 0) {
+    preservedTail = prompt.slice(-LINEAR_AGENT_REQUEST_MAX_CHARS);
+  } else if (request.length <= LINEAR_AGENT_REQUEST_MAX_CHARS) {
+    preservedTail = `Current request:\n${request}`;
+  } else {
+    preservedTail = `Current request (truncated):\n${request.slice(0, LINEAR_AGENT_REQUEST_MAX_CHARS)}`;
+  }
+  const marker = `\n\n[Linear context truncated from ${prompt.length} characters.]\n\n`;
+  const headLength = Math.max(
+    0,
+    LINEAR_AGENT_PROMPT_MAX_CHARS - marker.length - preservedTail.length,
+  );
+  return `${prompt.slice(0, headLength).trimEnd()}${marker}${preservedTail}`;
 }
 
 interface NormalizedPromptActivity {
