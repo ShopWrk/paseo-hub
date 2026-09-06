@@ -228,6 +228,14 @@ test("GitHub renders permissions as a mapping and events as a list, never as pro
   assert.ok(!prose.includes("Pull request review comment, and Push"), "events ran on in prose");
 });
 
+test("Linear requests the Agent Session webhook category required by native delegations", () => {
+  const steps = guideGroups(guideFor("linear"), ORIGIN).flatMap((group) => group.steps);
+  assert.deepEqual(
+    steps.flatMap((step) => step.events ?? []),
+    ["Issue", "Comment", "Agent Session"],
+  );
+});
+
 test("the organization ownership decision comes before the App is created", () => {
   const [access] = guideGroups(guideFor("github"), ORIGIN);
   const texts = access!.steps.map(stepText);
