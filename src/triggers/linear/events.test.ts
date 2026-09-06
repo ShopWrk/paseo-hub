@@ -247,6 +247,31 @@ describe("Linear event normalization", () => {
     assert.equal(event.agentActivity, null);
   });
 
+  it("bounds recursively expanded agent context while preserving the direct request", () => {
+    const promptContext = `<issue>${"x".repeat(70_000)}</issue>`;
+    const event = normalizeLinearEvent(
+      agentSessionEnvelope({
+        action: "created",
+        promptContext,
+        commentBody: "@Paseo agent=meta is this issue ready to start working on?",
+      }),
+      "AgentSessionEvent",
+      hydratedIssue(),
+    );
+
+    assert.equal(event?.type, "agent_session");
+    if (event?.type !== "agent_session") throw new Error("expected an agent session event");
+    assert.ok(event.prompt.length <= 24_000);
+    assert.match(event.prompt, /^<issue>x+/);
+    assert.match(event.prompt, /\[Linear context truncated from 70015 characters\.\]/);
+    assert.match(
+      event.prompt,
+      /Current request:\n@Paseo agent=meta is this issue ready to start working on\?$/,
+    );
+    assert.equal(event.parserMessage, "@Paseo agent=meta is this issue ready to start working on?");
+    assert.equal(event.promptContext, promptContext);
+  });
+
   it("normalizes a prompted agent session from the prompt activity", () => {
     const event = normalizeLinearEvent(
       agentSessionEnvelope({ action: "prompted" }),
@@ -356,6 +381,8 @@ function hydratedIssue() {
 function agentSessionEnvelope(input: {
   action: "created" | "prompted";
   agentActivity?: Record<string, unknown>;
+  promptContext?: string;
+  commentBody?: string;
 }) {
   return {
     action: input.action,
@@ -364,7 +391,7 @@ function agentSessionEnvelope(input: {
     appUserId: "app-user",
     createdAt: "2026-01-02T00:00:00.000Z",
     webhookTimestamp: Date.parse("2026-01-02T00:01:01.000Z"),
-    promptContext: "<issue>Canonical Linear context</issue>",
+    promptContext: input.promptContext ?? "<issue>Canonical Linear context</issue>",
     agentSession: {
       id: "session-1",
       appUserId: "app-user",
@@ -376,7 +403,7 @@ function agentSessionEnvelope(input: {
         id: "comment-1",
         issueId: "issue-1",
         userId: "user-1",
-        body: "@Paseo please draft a fix",
+        body: input.commentBody ?? "@Paseo please draft a fix",
       },
       issue: {
         id: "issue-1",
