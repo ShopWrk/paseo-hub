@@ -16,6 +16,7 @@ import {
   readDiscordPromptBody,
 } from "./match.js";
 import { matchesInputFilters, parseInvocation } from "../invocation.js";
+import { providerConversationKey } from "../continuation.js";
 import { NormalizedDiscordMessageEventSchema } from "./events.js";
 import type { NormalizedDiscordContextMessage, NormalizedDiscordMessageEvent } from "./events.js";
 
@@ -143,11 +144,16 @@ export function createDiscordTriggerProvider(options: {
           undefined,
           readDiscordInvocationParserMessage(event, botClientId, compiledTrigger.filters),
         );
+        const conversation = {
+          key: providerConversationKey("discord", event.guildId, event.threadId ?? event.messageId),
+          label: "Discord thread",
+        };
         if (invocation.status === "accepted") {
           if (!matchesInputFilters(invocation.inputs, compiledTrigger.filters?.inputs)) continue;
         }
         if (invocation.status === "rejected") {
           matches.push({
+            conversation,
             triggerName: match.trigger.name,
             triggerContext,
             outputContext,
@@ -158,6 +164,7 @@ export function createDiscordTriggerProvider(options: {
           continue;
         }
         matches.push({
+          conversation,
           triggerName: match.trigger.name,
           triggerContext,
           outputContext,

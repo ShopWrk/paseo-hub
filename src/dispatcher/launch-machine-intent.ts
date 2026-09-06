@@ -14,6 +14,11 @@ export interface DaemonEnvironmentTarget {
 }
 
 export interface LaunchMachineIntent {
+  continuation?: {
+    key: string | null;
+    compatibility: unknown;
+    agent?: { inherit: boolean; compatibility: TriggerAgentConfig };
+  };
   kind: "launch_machine";
   organizationId: string;
   projectId: string;

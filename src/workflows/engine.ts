@@ -1,3 +1,4 @@
+import { continuationKey } from "../triggers/continuation.js";
 import { DatabaseUnavailableError } from "../db/errors.js";
 import { readLinearTriggerStart } from "../db/linear-trigger-suppression.js";
 import type {
@@ -162,6 +163,7 @@ export class DurableWorkflowEngine {
             configuredTriggerName: match.triggerName,
             prompt: match.invocation.prompt,
             inputs: match.invocation.inputs,
+            explicitInputs: match.invocation.explicitInputs ?? [],
             triggerContext: match.triggerContext,
             outputContext: match.outputContext,
             rejection: match.invocation.rejection,
@@ -192,8 +194,10 @@ export class DurableWorkflowEngine {
           configuredTriggerName: acceptedMatch.triggerName,
           prompt: acceptedMatch.invocation.prompt,
           inputs: acceptedMatch.invocation.inputs,
+          explicitInputs: acceptedMatch.invocation.explicitInputs ?? [],
           triggerContext: acceptedMatch.triggerContext,
           outputContext: acceptedMatch.outputContext,
+          conversation: acceptedMatch.conversation,
           deadlineAt: runDeadline,
           stepIds: compiledTrigger.steps.map((step) => step.id),
           createdAt,
@@ -919,6 +923,7 @@ function buildStepIntent(
     throw new Error(`workflow environment ${environmentName} is unavailable`);
   }
   const agent = materializeAgent(step.agent, context);
+  const selectorInput = agentSelectorInput(step.agent);
   return {
     ...buildLaunchMachineIntent({
       organizationId: run.organizationId,
@@ -939,7 +944,10 @@ function buildStepIntent(
       ...(step.github === undefined ? {} : { github: step.github }),
       prompt: step.prompt
         .map((block) =>
-          renderExpressionTemplate(block.kind === "text" ? block.value : block.content, context),
+          renderExpressionTemplate(block.kind === "text" ? block.value : block.content, {
+            ...context,
+            executionId,
+          }),
         )
         .join("\n"),
       agent,
@@ -952,6 +960,24 @@ function buildStepIntent(
       configurationRevisionId: run.configurationRevisionId,
       hubConfig: configuration,
     }),
+    ...(step.continuation === undefined
+      ? {}
+      : {
+          continuation: {
+            key: continuationKey(step.continuation, run.conversation, (value) =>
+              renderExpressionTemplate(value, context),
+            ),
+            compatibility: {
+              target: environment,
+              env: step.env ?? {},
+              github: step.github ?? null,
+            },
+            agent: {
+              inherit: selectorInput !== undefined && !run.explicitInputs.includes(selectorInput),
+              compatibility: agent,
+            },
+          },
+        }),
     workflowStepRunId: stepRunId,
     ...(step.output === undefined ? {} : { outputSchema: step.output.schema }),
     deadlineAt,
@@ -973,6 +999,13 @@ function materializeAgent(
     ...agent,
     ...(agent.options === undefined ? {} : { options: structuredClone(agent.options) }),
   };
+}
+
+function agentSelectorInput(
+  selection: CompiledProjectConfiguration["triggers"][number]["steps"][number]["agent"],
+): string | undefined {
+  if (!("selector" in selection)) return undefined;
+  return /^\$\{\{\s*paseo\.inputs\.([a-z][a-z0-9_-]*)\s*\}\}$/u.exec(selection.selector)?.[1];
 }
 
 function workflowContext(

@@ -1,3 +1,4 @@
+import { ContinuationSchema } from "../triggers/continuation.js";
 import { createHash } from "node:crypto";
 import { z } from "zod";
 import {
@@ -247,6 +248,7 @@ export interface CompiledInput {
 }
 
 export interface CompiledStep {
+  continuation?: import("../triggers/continuation.js").Continuation | undefined;
   id: string;
   environment: string;
   maxRuntimeMs: number;
@@ -394,6 +396,7 @@ const CompiledJsonSchemaSchema = z.custom<JsonValue>(
 
 const CompiledStepSchema: z.ZodType<CompiledStep> = z
   .object({
+    continuation: ContinuationSchema.optional(),
     id: z.string().regex(IDENTIFIER),
     environment: z.string().min(1),
     maxRuntimeMs: z.number().int().positive().max(MAX_DURATION_MS),
@@ -1023,7 +1026,10 @@ function validateExpressionContract(
         return;
       }
       if (reference.path[0] === "execution") {
-        throw new Error(`${path} uses paseo.execution outside environment worktree.newBranch`);
+        if (!contextAllowed) {
+          throw new Error(`${path} uses paseo.execution outside a step prompt or worktree branch`);
+        }
+        return;
       }
       const inputName = reference.path[1];
       const input = trigger.inputs[inputName];

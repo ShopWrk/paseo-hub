@@ -165,6 +165,7 @@ describe("trigger acceptance persistence", () => {
           configuredTriggerName: commentId === null ? "agent-session" : "comment",
           prompt: "raw",
           inputs: {},
+          explicitInputs: deliveryId === "comment-1-later" ? ["agent"] : [],
           triggerContext: {
             provider: "linear",
             event: {
@@ -190,6 +191,7 @@ describe("trigger acceptance persistence", () => {
     const ids = async (commentIds: readonly string[]) =>
       (await database.listTriggerRunsForLinearComments(projectId, commentIds)).map((r) => r.id);
     assert.deepEqual(await ids(["comment-1"]), [later.id, earlier.id]);
+    assert.deepEqual(later.explicitInputs, ["agent"]);
     assert.deepEqual(await ids(["comment-2", "comment-1"]), [other.id, later.id, earlier.id]);
     assert.deepEqual(await ids(["comment-3"]), []);
     assert.deepEqual(await ids([]), []);

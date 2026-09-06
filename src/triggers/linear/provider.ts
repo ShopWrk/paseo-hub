@@ -23,6 +23,7 @@ import type {
   TriggerProviderReactionState,
 } from "../index.js";
 import { matchesInputFilters, parseInvocation } from "../invocation.js";
+import { providerConversationKey } from "../continuation.js";
 import {
   NormalizedLinearEventSchema,
   type NormalizedLinearAgentSessionEvent,
@@ -208,9 +209,14 @@ export function createLinearTriggerProvider(
           undefined,
           parserMessageForEvent(event, compiledTrigger.filters),
         );
+        const conversation = {
+          key: providerConversationKey("linear", event.organizationId, issue.id),
+          label: "Linear issue",
+        };
         if (invocation.status === "accepted") {
           if (!matchesInputFilters(invocation.inputs, compiledTrigger.filters?.inputs)) continue;
           matches.push({
+            conversation,
             triggerName: candidate.trigger.name,
             triggerContext,
             outputContext,
@@ -220,6 +226,7 @@ export function createLinearTriggerProvider(
           });
         } else {
           matches.push({
+            conversation,
             triggerName: candidate.trigger.name,
             triggerContext,
             outputContext,

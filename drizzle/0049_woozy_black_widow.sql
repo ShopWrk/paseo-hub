@@ -1,0 +1,1 @@
+ALTER TABLE "trigger_runs" ADD COLUMN "explicit_inputs" jsonb DEFAULT '[]'::jsonb NOT NULL;

@@ -32,6 +32,7 @@ describe("Linear trigger provider", () => {
         status: "accepted",
         prompt: body,
         inputs: { priority: "high" },
+        explicitInputs: ["priority"],
       });
     },
   );
@@ -50,6 +51,7 @@ describe("Linear trigger provider", () => {
       status: "accepted",
       prompt: body,
       inputs: { repo: "hub", priority: "high" },
+      explicitInputs: ["repo", "priority"],
     });
   });
 
@@ -67,6 +69,7 @@ describe("Linear trigger provider", () => {
       status: "accepted",
       prompt: body,
       inputs: { priority: "high" },
+      explicitInputs: ["priority"],
     });
   });
 
@@ -84,6 +87,7 @@ describe("Linear trigger provider", () => {
       status: "accepted",
       prompt: body,
       inputs: { repo: "hub", priority: "high" },
+      explicitInputs: ["repo", "priority"],
     });
   });
 
@@ -101,6 +105,7 @@ describe("Linear trigger provider", () => {
       status: "accepted",
       prompt: body,
       inputs: { repo: "hub", priority: "high" },
+      explicitInputs: ["repo", "priority"],
     });
   });
 
@@ -118,6 +123,7 @@ describe("Linear trigger provider", () => {
       status: "accepted",
       prompt: body,
       inputs: { repo: "hub", priority: "high" },
+      explicitInputs: ["repo", "priority"],
     });
   });
 
@@ -157,6 +163,7 @@ describe("Linear trigger provider", () => {
       status: "accepted",
       prompt: body,
       inputs: { priority: "high" },
+      explicitInputs: ["priority"],
     });
   });
 

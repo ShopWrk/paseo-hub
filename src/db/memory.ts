@@ -281,6 +281,7 @@ class MemoryDatabase implements Database {
     }
     const now = input.createdAt ?? this.options.now?.() ?? new Date();
     const run: AcceptedTriggerRunRecord = {
+      conversation: structuredClone(input.conversation ?? null),
       id: input.id ?? randomUUID(),
       organizationId: input.organizationId,
       projectId: input.projectId,
@@ -291,6 +292,7 @@ class MemoryDatabase implements Database {
       status: "running",
       prompt: input.prompt,
       inputs: freezeEvidence(input.inputs),
+      explicitInputs: Object.freeze([...(input.explicitInputs ?? [])]),
       values: freezeEvidence(input.values ?? {}),
       triggerContext: freezeEvidence(input.triggerContext),
       outputContext: freezeEvidence(input.outputContext),
@@ -476,6 +478,7 @@ class MemoryDatabase implements Database {
     }
     const now = input.createdAt ?? this.options.now?.() ?? new Date();
     const run: RejectedTriggerRunRecord = {
+      conversation: null,
       id: input.id ?? randomUUID(),
       organizationId: input.organizationId,
       projectId: input.projectId,
@@ -486,6 +489,7 @@ class MemoryDatabase implements Database {
       status: "rejected",
       prompt: input.prompt,
       inputs: freezeEvidence(input.inputs),
+      explicitInputs: Object.freeze([...(input.explicitInputs ?? [])]),
       values: freezeEvidence(input.values ?? {}),
       triggerContext: freezeEvidence(input.triggerContext),
       outputContext: freezeEvidence(input.outputContext),
@@ -1609,6 +1613,8 @@ class MemoryDatabase implements Database {
     const idleDeadlineAt = capIdleDeadline(input.idleDeadlineAt, deadlineAt);
 
     const execution: AgentExecutionRecord = {
+      agentSessionId: null,
+      agentSessionAction: null,
       id: input.id ?? randomUUID(),
       organizationId: input.organizationId,
       projectId: input.projectId,
@@ -2487,6 +2493,46 @@ class MemoryDatabase implements Database {
       });
     }
     return record;
+  }
+
+  private readonly agentSessions = new Map<
+    string,
+    import("../agent-sessions/index.js").AgentSessionRecord
+  >();
+  async findAgentSession(id: string) {
+    return structuredClone(this.agentSessions.get(id));
+  }
+  async saveAgentSession(
+    session: import("../agent-sessions/index.js").AgentSessionRecord,
+  ): Promise<void> {
+    this.agentSessions.set(session.id, structuredClone(session));
+  }
+  async attachExecutionToSession(
+    executionId: string,
+    sessionId: string,
+    action?: import("../agent-sessions/index.js").AgentSessionAction,
+  ): Promise<void> {
+    const execution = this.agentExecutions.get(executionId);
+    const session = this.agentSessions.get(sessionId);
+    if (
+      !execution ||
+      !session ||
+      execution.projectId !== session.projectId ||
+      execution.organizationId !== session.organizationId ||
+      (execution.agentSessionId !== null && execution.agentSessionId !== sessionId)
+    ) {
+      throw new Error("Agent session does not belong to this execution");
+    }
+    this.agentExecutions.set(executionId, {
+      ...execution,
+      agentSessionId: sessionId,
+      agentSessionAction: execution.agentSessionAction ?? action ?? null,
+    });
+  }
+  async listAgentSessionExecutions(sessionId: string): Promise<AgentExecutionRecord[]> {
+    return [...this.agentExecutions.values()].filter(
+      (execution) => execution.agentSessionId === sessionId,
+    );
   }
 
   async withAdvisoryLock<T>(key: string, fn: () => Promise<T>): Promise<T> {
