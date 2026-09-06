@@ -16,6 +16,46 @@ import type { NormalizedLinearAgentSessionEvent, NormalizedLinearCommentEvent } 
 import { createLinearTriggerProvider } from "./provider.js";
 
 describe("Linear trigger provider", () => {
+  it("parses typed inputs after the app mention that created an Agent Session", async () => {
+    const configuration = agentSessionConfiguration();
+    const trigger = configuration.triggers[0]!;
+    const { project, revision, store } = await createActiveProjectConfiguration(
+      createMemoryDatabase(),
+      {
+        ...configuration,
+        triggers: [
+          {
+            ...trigger,
+            inputs: {
+              agent: {
+                type: "string",
+                default: "default",
+                choices: ["default", "meta"],
+              },
+            },
+          },
+        ],
+      },
+      { organizationId: "hub-org" },
+    );
+    const provider = createLinearTriggerProvider({ configurationStoreForProject: () => store });
+    const created = agentSessionEvent({ action: "created" });
+    const payload = {
+      ...created,
+      parserMessage: "@shopwrker agent=meta is this issue ready to begin working on?",
+    };
+
+    const match = (await provider.match(externalAgentSession(project.id, revision.id, payload)))[0];
+    if (!isAcceptedTriggerProviderMatch(match)) throw new Error("expected accepted match");
+
+    assert.deepEqual(match.invocation, {
+      status: "accepted",
+      prompt: "<issue>Canonical Linear context</issue>",
+      inputs: { agent: "meta" },
+      explicitInputs: ["agent"],
+    });
+  });
+
   it.each([
     ["pattern", { pattern: "/run" }, "/run priority=high investigate"],
     ["contains", { contains: "/run" }, "please /run priority=high investigate"],
