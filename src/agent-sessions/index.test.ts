@@ -75,6 +75,7 @@ async function fixture() {
     key: string | null = "conversation",
     target = "daemon",
     env: Record<string, string> = {},
+    provider = "codex",
   ) {
     const executionId = randomUUID();
     const intent: LaunchMachineIntent = {
@@ -85,7 +86,7 @@ async function fixture() {
       triggerName: "answer",
       environmentName: "target",
       environment: { kind: "daemon", daemonId: target, authoredSlug: target, cwd: "/repo" },
-      agent: { provider: "codex" },
+      agent: { provider },
       prompt: "hello",
       env,
       allowOutputs: [{ type: "test.reply", max: 1 }],
@@ -116,7 +117,7 @@ async function fixture() {
           onEvent: () => {},
           createOptions: async () => ({
             executionId,
-            provider: "codex",
+            provider,
             cwd: "/repo",
             prompt: "hello",
             env: {},
@@ -170,6 +171,7 @@ test("same-key arrivals share an agent; an earlier completion cannot archive new
   expect(a.agentId).toBe(b.agentId);
   expect(f.connection.creates).toHaveLength(1);
   expect(f.connection.deliveries).toHaveLength(2);
+  expect(f.connection.deliveries.map(({ text }) => text)).toEqual(["hello", "hello"]);
   await f.database.transitionAgentExecution(first.executionId, "succeeded");
   await f.sessions.control(await f.execution(first.executionId), f.connection, "archive");
   expect(f.connection.archives).toBe(0);
@@ -220,6 +222,20 @@ test("new-agent policy isolates arrivals and incompatible targets fail without r
   const changed = await f.arrival("conversation", "different-daemon");
   await expect(changed.dispatch()).rejects.toThrow("Continuation settings differ");
   expect(f.connection.creates).toHaveLength(3);
+});
+
+test("a continuing conversation keeps the agent selected on its first arrival", async () => {
+  const f = await fixture();
+  const first = await f.arrival("conversation", "daemon", {}, "codex");
+  const followUp = await f.arrival("conversation", "daemon", {}, "opencode");
+  const created = await first.dispatch();
+
+  expect(await followUp.dispatch()).toMatchObject({
+    agentId: created.agentId,
+    action: "continued",
+  });
+  expect(f.connection.creates).toHaveLength(1);
+  expect(f.connection.creates[0]?.provider).toBe("codex");
 });
 
 test("temporary environment credentials require a new agent instead of being reused", async () => {

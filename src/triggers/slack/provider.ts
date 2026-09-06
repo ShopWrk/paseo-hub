@@ -18,6 +18,7 @@ import {
   readSlackPromptBody,
 } from "./match.js";
 import { matchesInputFilters, parseInvocation } from "../invocation.js";
+import { providerConversationKey } from "../continuation.js";
 
 export interface SlackAttachmentLocator {
   id: string;
@@ -156,20 +157,21 @@ export function createSlackTriggerProvider(options: {
           undefined,
           readSlackInvocationParserMessage(rawEvent, botUserId, compiledTrigger.filters),
         );
+        const conversation = {
+          key: providerConversationKey(
+            "slack",
+            rawEvent.teamId,
+            rawEvent.channelId,
+            rawEvent.threadTs ?? rawEvent.messageTs,
+          ),
+          label: "Slack thread",
+        };
         if (invocation.status === "accepted") {
           if (!matchesInputFilters(invocation.inputs, compiledTrigger.filters?.inputs)) continue;
         }
         if (invocation.status === "rejected") {
           matches.push({
-            conversation: {
-              key: JSON.stringify([
-                "slack",
-                rawEvent.teamId,
-                rawEvent.channelId,
-                rawEvent.threadTs ?? rawEvent.messageTs,
-              ]),
-              label: "Slack thread",
-            },
+            conversation,
             triggerName: match.trigger.name,
             triggerContext,
             outputContext,
@@ -180,15 +182,7 @@ export function createSlackTriggerProvider(options: {
           continue;
         }
         matches.push({
-          conversation: {
-            key: JSON.stringify([
-              "slack",
-              rawEvent.teamId,
-              rawEvent.channelId,
-              rawEvent.threadTs ?? rawEvent.messageTs,
-            ]),
-            label: "Slack thread",
-          },
+          conversation,
           triggerName: match.trigger.name,
           triggerContext,
           outputContext,

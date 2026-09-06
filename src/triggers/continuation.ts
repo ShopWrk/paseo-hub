@@ -21,6 +21,13 @@ export interface Conversation {
   url?: string;
 }
 
+export function providerConversationKey(
+  provider: "discord" | "github" | "linear" | "slack",
+  ...parts: readonly (string | number)[]
+): string {
+  return JSON.stringify([provider, ...parts]);
+}
+
 export function continuationKey(
   policy: Continuation,
   conversation: Conversation | null,

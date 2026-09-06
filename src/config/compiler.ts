@@ -1026,7 +1026,10 @@ function validateExpressionContract(
         return;
       }
       if (reference.path[0] === "execution") {
-        throw new Error(`${path} uses paseo.execution outside environment worktree.newBranch`);
+        if (!contextAllowed) {
+          throw new Error(`${path} uses paseo.execution outside a step prompt or worktree branch`);
+        }
+        return;
       }
       const inputName = reference.path[1];
       const input = trigger.inputs[inputName];

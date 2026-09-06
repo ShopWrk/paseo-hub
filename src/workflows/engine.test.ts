@@ -87,6 +87,7 @@ describe("durable multi-step workflow engine", () => {
             : undefined,
           `trigger-${execution.id}`,
         );
+        assert.equal(intent.prompt, `Execution ${execution.id}: Do the work.`);
       }
     },
   );
@@ -2014,7 +2015,7 @@ function executionWorktreeConfiguration(): Record<string, unknown> {
     max_runtime: "10m",
     idle_timeout: "1m",
     agent: { provider: "codex" },
-    prompt: [{ text: "Do the work." }],
+    prompt: [{ text: "Execution ${{ paseo.execution.id }}: Do the work." }],
   });
   return {
     environments: [

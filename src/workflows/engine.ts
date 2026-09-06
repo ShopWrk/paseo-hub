@@ -941,7 +941,10 @@ function buildStepIntent(
       ...(step.github === undefined ? {} : { github: step.github }),
       prompt: step.prompt
         .map((block) =>
-          renderExpressionTemplate(block.kind === "text" ? block.value : block.content, context),
+          renderExpressionTemplate(block.kind === "text" ? block.value : block.content, {
+            ...context,
+            executionId,
+          }),
         )
         .join("\n"),
       agent,
@@ -962,7 +965,8 @@ function buildStepIntent(
               renderExpressionTemplate(value, context),
             ),
             compatibility: {
-              agent,
+              // The session owns the agent chosen on its first arrival. Follow-ups may apply
+              // input defaults again, but they must not replace that stored agent selection.
               target: environment,
               env: step.env ?? {},
               github: step.github ?? null,

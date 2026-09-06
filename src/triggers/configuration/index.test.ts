@@ -171,7 +171,7 @@ run:
   });
 });
 
-it("applies the continuation default when reading old trigger revisions without rewriting their evidence", () => {
+it("keeps old trigger revisions on new-agent continuity without rewriting their evidence", () => {
   const compiled = compileTriggerDocument(trigger);
   const stored = structuredClone({
     environments: [{ ...compiled.environment, daemonId: "daemon" }],
@@ -195,7 +195,7 @@ it("applies the continuation default when reading old trigger revisions without 
     validatedAt: new Date(),
   };
   const loaded = parseProjectConfiguration(revision);
-  assert.deepEqual(loaded.triggers[0]?.steps[0]?.continuation, { mode: "conversation" });
+  assert.deepEqual(loaded.triggers[0]?.steps[0]?.continuation, { mode: "new" });
   assert.equal(stored.triggers[0]?.steps[0]?.continuation, undefined);
   const legacy = parseProjectConfiguration({ ...revision, sourceEvidence: { kind: "manual" } });
   assert.equal(legacy.triggers[0]?.steps[0]?.continuation, undefined);

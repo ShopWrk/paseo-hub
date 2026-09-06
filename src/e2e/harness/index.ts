@@ -903,10 +903,19 @@ export class HubE2E {
     const trigger = configuration.triggers.find(
       (item) => item.name === (realAgent ? "finalize" : "e2e-discord"),
     )!;
-    for (const step of trigger.steps)
+    for (const step of trigger.steps) {
       step.continuation = realAgent
         ? { mode: "key", key: "real-agent-continuation" }
         : { mode: "conversation" };
+      step.prompt = [
+        {
+          kind: "text",
+          value:
+            "Hub execution: ${{ paseo.execution.id }}\nUse this executionId for Hub tool calls for this request.",
+        },
+        ...step.prompt,
+      ];
+    }
     await this.requirePool().query(
       "update project_configuration_revisions set normalized_configuration = $2 where id = $1",
       [row.id, configuration],

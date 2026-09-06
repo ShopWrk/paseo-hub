@@ -435,7 +435,7 @@ test.each(["github.issue_label_added", "github.pull_request_label_added"])(
 test("continuation policies round-trip through the form and YAML", () => {
   const projection = projectTriggerForm(ADVANCED);
   if (projection.status !== "editable") throw new Error(projection.reason);
-  expect(projection.value.continuationMode).toBe("conversation");
+  expect(projection.value.continuationMode).toBe("new");
   for (const mode of ["key", "new", "conversation"]) {
     const yaml = patchTriggerYaml(ADVANCED, {
       ...projection.value,

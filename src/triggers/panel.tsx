@@ -1294,7 +1294,7 @@ function defaultForm(snapshot: TriggerSnapshot): TriggerFormValue {
     githubPermissions: "",
     githubDuration: "1h",
     prompt:
-      "Handle this request in the originating conversation.\n\nWhen hub.reply is available, use it for useful progress updates and your final user-facing response. Call hub.finish_execution once the request is complete.\n\nRequest:\n${{ paseo.prompt }}",
+      "Handle this request in the originating conversation.\n\nCurrent Hub execution ID: ${{ paseo.execution.id }}\nUse this value as executionId in every Hub tool call for this request.\n\nWhen hub.reply is available, use it for useful progress updates and your final user-facing response. Call hub.finish_execution once the request is complete.\n\nRequest:\n${{ paseo.prompt }}",
   };
 }
 

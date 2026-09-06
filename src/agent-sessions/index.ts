@@ -113,11 +113,7 @@ export class AgentSessions {
       await this.database.attachExecutionToSession(input.executionId, id, action);
       const unsubscribe = await input.connection.watch(session.agentId, input.onEvent);
       try {
-        await input.connection.send(
-          session.agentId,
-          input.executionId,
-          `Hub execution: ${input.executionId}\nUse this executionId for Hub tool calls for this request.\n\n${input.intent.prompt}`,
-        );
+        await input.connection.send(session.agentId, input.executionId, input.intent.prompt);
       } catch (error) {
         unsubscribe();
         throw error;

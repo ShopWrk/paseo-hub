@@ -14,6 +14,7 @@ import {
   readGitHubMention,
 } from "./match.js";
 import { matchesInputFilters, parseInvocation } from "../invocation.js";
+import { providerConversationKey } from "../continuation.js";
 import {
   IssueCommentPayloadSchema,
   IssuesPayloadSchema,
@@ -352,7 +353,7 @@ function githubConversation(
   if (typeof number !== "number") return null;
   const url: unknown = Reflect.get(item, "html_url");
   return {
-    key: JSON.stringify(["github", event.repositoryId, number]),
+    key: providerConversationKey("github", event.repositoryId, number),
     label: `${event.repo}#${String(number)}`,
     ...(typeof url === "string" ? { url } : {}),
   };
