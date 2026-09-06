@@ -718,6 +718,47 @@ describe("durable multi-step workflow engine", () => {
     });
   });
 
+  it.each([
+    { invocation: "agent=codex investigate", explicitInputs: ["agent"], inherit: false },
+    { invocation: "investigate", explicitInputs: [], inherit: true },
+  ])(
+    "marks continuation agent inheritance from invocation provenance for $invocation",
+    async ({ invocation, explicitInputs, inherit }) => {
+      const compiled = compileHubConfig(continuationAgentInputConfiguration(), {
+        namedAgents: {
+          codex: { provider: "codex", model: "gpt-5.6-sol" },
+          grok: { provider: "grok", model: "grok-4.6" },
+        },
+      });
+      const compiledConfiguration = structuredClone(compiled);
+      Object.assign(compiledConfiguration.triggers[0]!.steps[0]!, {
+        continuation: { mode: "key", key: "thread" },
+      });
+      const fixture = await workflowFixture({
+        compiledConfiguration,
+      });
+      const intents: LaunchMachineIntent[] = [];
+      const { handler, engine } = engineFor(fixture, [], async (intent) => {
+        intents.push(intent);
+      });
+
+      await handler(fixture.trigger(invocation));
+      await engine.processAvailable();
+
+      const run = (
+        await fixture.database.findTriggerRunsByProviderEventReceiptId(
+          fixture.providerEventReceiptId,
+        )
+      )[0]!;
+      assert.deepEqual(run.explicitInputs, explicitInputs);
+      assert.equal(intents[0]?.continuation?.agent?.inherit, inherit);
+      assert.deepEqual(intents[0]?.continuation?.agent?.compatibility, {
+        provider: "codex",
+        model: "gpt-5.6-sol",
+      });
+    },
+  );
+
   it("activates and executes the migrated current-project classifier-to-worker fixture", async () => {
     const bundle = compileHubBundle(await currentProjectConfigurationFiles());
     const fixture = await workflowFixture({ compiledConfiguration: bundle.configuration });
@@ -1810,6 +1851,32 @@ function namedSelectionConfiguration(): Record<string, unknown> {
             idle_timeout: "1m",
             agent: "${{ values.agent }}",
             prompt: [{ text: "Work" }],
+          },
+        ],
+      },
+    ],
+  };
+}
+
+function continuationAgentInputConfiguration(): Record<string, unknown> {
+  return {
+    environments: [{ name: "runner", kind: "daemon", daemon: "runner", cwd: "/workspace" }],
+    triggers: [
+      {
+        name: "continuation-agent-input",
+        on: "manual.run",
+        max_runtime: "1h",
+        inputs: {
+          agent: { type: "string", default: "codex", choices: ["codex", "grok"] },
+        },
+        steps: [
+          {
+            id: "work",
+            environment: "runner",
+            max_runtime: "10m",
+            idle_timeout: "1m",
+            agent: "${{ paseo.inputs.agent }}",
+            prompt: [{ text: "${{ paseo.prompt }}" }],
           },
         ],
       },

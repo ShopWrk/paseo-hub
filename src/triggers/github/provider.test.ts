@@ -47,6 +47,7 @@ describe("GitHub Phase 1 trigger provider", () => {
       status: "accepted",
       prompt: "@paseo repo=hub agent=opus investigate",
       inputs: { repo: "hub", agent: "opus" },
+      explicitInputs: ["repo", "agent"],
     });
   });
 
@@ -69,6 +70,7 @@ describe("GitHub Phase 1 trigger provider", () => {
       status: "accepted",
       prompt: "please @paseo repo=hub agent=opus investigate",
       inputs: { repo: "hub", agent: "opus" },
+      explicitInputs: ["repo", "agent"],
     });
   });
 

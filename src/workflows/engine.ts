@@ -163,6 +163,7 @@ export class DurableWorkflowEngine {
             configuredTriggerName: match.triggerName,
             prompt: match.invocation.prompt,
             inputs: match.invocation.inputs,
+            explicitInputs: match.invocation.explicitInputs ?? [],
             triggerContext: match.triggerContext,
             outputContext: match.outputContext,
             rejection: match.invocation.rejection,
@@ -193,6 +194,7 @@ export class DurableWorkflowEngine {
           configuredTriggerName: acceptedMatch.triggerName,
           prompt: acceptedMatch.invocation.prompt,
           inputs: acceptedMatch.invocation.inputs,
+          explicitInputs: acceptedMatch.invocation.explicitInputs ?? [],
           triggerContext: acceptedMatch.triggerContext,
           outputContext: acceptedMatch.outputContext,
           conversation: acceptedMatch.conversation,
@@ -921,6 +923,7 @@ function buildStepIntent(
     throw new Error(`workflow environment ${environmentName} is unavailable`);
   }
   const agent = materializeAgent(step.agent, context);
+  const selectorInput = agentSelectorInput(step.agent);
   return {
     ...buildLaunchMachineIntent({
       organizationId: run.organizationId,
@@ -965,11 +968,13 @@ function buildStepIntent(
               renderExpressionTemplate(value, context),
             ),
             compatibility: {
-              // The session owns the agent chosen on its first arrival. Follow-ups may apply
-              // input defaults again, but they must not replace that stored agent selection.
               target: environment,
               env: step.env ?? {},
               github: step.github ?? null,
+            },
+            agent: {
+              inherit: selectorInput !== undefined && !run.explicitInputs.includes(selectorInput),
+              compatibility: agent,
             },
           },
         }),
@@ -994,6 +999,13 @@ function materializeAgent(
     ...agent,
     ...(agent.options === undefined ? {} : { options: structuredClone(agent.options) }),
   };
+}
+
+function agentSelectorInput(
+  selection: CompiledProjectConfiguration["triggers"][number]["steps"][number]["agent"],
+): string | undefined {
+  if (!("selector" in selection)) return undefined;
+  return /^\$\{\{\s*paseo\.inputs\.([a-z][a-z0-9_-]*)\s*\}\}$/u.exec(selection.selector)?.[1];
 }
 
 function workflowContext(

@@ -65,6 +65,10 @@ export function parseInvocationInputs(value: unknown): InvocationInputs {
   return Object.freeze(parsed);
 }
 
+export function parseExplicitInputs(value: unknown): readonly string[] {
+  return Object.freeze(z.array(z.string().min(1)).parse(value));
+}
+
 export function formatInvocationRejection(rejection: InvocationRejection): string {
   switch (rejection.code) {
     case "invalid_choice":
@@ -88,11 +92,13 @@ export type InvocationParseResult =
       status: "accepted";
       prompt: string;
       inputs: InvocationInputs;
+      explicitInputs?: readonly string[];
     }
   | {
       status: "rejected";
       prompt: string;
       inputs: InvocationInputs;
+      explicitInputs?: readonly string[];
       reason: string;
       rejection: InvocationRejection;
     };
@@ -108,17 +114,24 @@ export function parseInvocation(
   const consumed = consumeDeclaredHeaders(promptAfterMention, definitions, inputs);
 
   if (consumed.reason !== undefined) {
-    return rejected(prompt, inputs, consumed.reason.message, consumed.reason.rejection);
+    return rejected(
+      prompt,
+      inputs,
+      Object.keys(inputs),
+      consumed.reason.message,
+      consumed.reason.rejection,
+    );
   }
 
+  const explicitInputs = Object.freeze(Object.keys(inputs));
   const defaults = applyDefaults(definitions, inputs);
   if (defaults !== undefined) {
-    return rejected(prompt, inputs, defaults.message, defaults.rejection);
+    return rejected(prompt, inputs, explicitInputs, defaults.message, defaults.rejection);
   }
 
   const required = findMissingRequiredInput(definitions, inputs);
   if (required !== undefined) {
-    return rejected(prompt, inputs, `required input ${required} is missing`, {
+    return rejected(prompt, inputs, explicitInputs, `required input ${required} is missing`, {
       code: "missing_required",
       inputName: required,
     });
@@ -128,6 +141,7 @@ export function parseInvocation(
     status: "accepted",
     prompt,
     inputs: freezeInputs(inputs),
+    explicitInputs,
   };
 }
 
@@ -295,6 +309,7 @@ function freezeInputs(inputs: Record<string, JsonPrimitive>): InvocationInputs {
 function rejected(
   prompt: string,
   inputs: Record<string, JsonPrimitive>,
+  explicitInputs: readonly string[],
   reason: string,
   rejection: InvocationRejection,
 ): InvocationParseResult {
@@ -302,6 +317,7 @@ function rejected(
     status: "rejected",
     prompt,
     inputs: freezeInputs(inputs),
+    explicitInputs: Object.freeze([...explicitInputs]),
     reason,
     rejection: Object.freeze(rejection),
   };

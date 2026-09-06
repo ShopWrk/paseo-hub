@@ -22,6 +22,7 @@ describe("provider-neutral message invocation parser", () => {
       expected: {
         prompt: "  @Paseo   repo=hub investigate",
         inputs: { repo: "hub", agent: "codex" },
+        explicitInputs: ["repo"],
       },
     },
     {
@@ -30,6 +31,7 @@ describe("provider-neutral message invocation parser", () => {
       expected: {
         prompt: "investigate the failed sync",
         inputs: { agent: "codex" },
+        explicitInputs: [],
       },
     },
     {
@@ -38,6 +40,7 @@ describe("provider-neutral message invocation parser", () => {
       expected: {
         prompt: "repo=hub agent=opus investigate",
         inputs: { repo: "hub", agent: "opus" },
+        explicitInputs: ["repo", "agent"],
       },
     },
     {
@@ -46,6 +49,7 @@ describe("provider-neutral message invocation parser", () => {
       expected: {
         prompt: "repo=hub   investigate   the sync  ",
         inputs: { repo: "hub", agent: "codex" },
+        explicitInputs: ["repo"],
       },
     },
     {
@@ -55,6 +59,7 @@ describe("provider-neutral message invocation parser", () => {
       expected: {
         prompt: "@PaseoBot repo=hub investigate",
         inputs: { agent: "codex" },
+        explicitInputs: [],
       },
     },
     {
@@ -64,6 +69,7 @@ describe("provider-neutral message invocation parser", () => {
       expected: {
         prompt: "request @Paseo repo=hub investigate",
         inputs: { agent: "codex" },
+        explicitInputs: [],
       },
     },
     {
@@ -72,6 +78,7 @@ describe("provider-neutral message invocation parser", () => {
       expected: {
         prompt: "unknown=value repo=hub investigate",
         inputs: { agent: "codex" },
+        explicitInputs: [],
       },
     },
   ])("$name", ({ message, mention, expected }) => {
@@ -137,6 +144,7 @@ describe("provider-neutral message invocation parser", () => {
       status: "accepted",
       prompt: "-- repo=hub investigate",
       inputs: { agent: "codex" },
+      explicitInputs: [],
     });
   });
 });

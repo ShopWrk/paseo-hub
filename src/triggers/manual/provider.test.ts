@@ -55,6 +55,7 @@ describe("manual invocation provider", () => {
       status: "accepted",
       prompt: "repo=hub agent=opus investigate",
       inputs: { repo: "hub", agent: "opus" },
+      explicitInputs: ["repo", "agent"],
     });
   });
 

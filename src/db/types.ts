@@ -710,6 +710,7 @@ interface TriggerRunEvidence {
   configuredTriggerName: string;
   prompt: string;
   inputs: unknown;
+  explicitInputs: readonly string[];
   values: unknown;
   triggerContext: unknown;
   outputContext: unknown;
@@ -783,6 +784,7 @@ export interface CreateAcceptedTriggerRunInput {
   configuredTriggerName: string;
   prompt: string;
   inputs: unknown;
+  explicitInputs?: readonly string[];
   values?: unknown;
   triggerContext: unknown;
   outputContext: unknown;
@@ -812,6 +814,7 @@ export interface CreateRejectedTriggerRunInput {
   configuredTriggerName: string;
   prompt: string;
   inputs: unknown;
+  explicitInputs?: readonly string[];
   values?: unknown;
   triggerContext: unknown;
   outputContext: unknown;

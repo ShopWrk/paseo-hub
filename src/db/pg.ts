@@ -1,7 +1,11 @@
 import { randomUUID } from "node:crypto";
 import type { LaunchMachineIntent } from "../dispatcher/launch-machine-intent.js";
 import { parseCompiledHubConfig, type JsonValue } from "../config/compiler.js";
-import { parseInvocationInputs, parseInvocationRejection } from "../triggers/invocation.js";
+import {
+  parseExplicitInputs,
+  parseInvocationInputs,
+  parseInvocationRejection,
+} from "../triggers/invocation.js";
 import type { ProviderEventDropReasonCode } from "../triggers/drop-reason.js";
 import {
   clearOverrideKey,
@@ -674,8 +678,8 @@ class PgDatabase implements Database {
       `insert into trigger_runs
            (id, organization_id, project_id, configuration_revision_id, provider_event_receipt_id,
            configured_trigger_name, outcome, status,
-            prompt, inputs, values, trigger_context, output_context, deadline_at, deadline_kind, rejection, created_at, conversation)
-         values (coalesce($1, gen_random_uuid()), $2, $3, $4, $5, $6, 'accepted', 'running', $7, $8, '{}'::jsonb, $9, $10, $11, null, null, $12, $13)
+            prompt, inputs, explicit_inputs, values, trigger_context, output_context, deadline_at, deadline_kind, rejection, created_at, conversation)
+         values (coalesce($1, gen_random_uuid()), $2, $3, $4, $5, $6, 'accepted', 'running', $7, $8, $9, '{}'::jsonb, $10, $11, $12, null, null, $13, $14)
          on conflict (provider_event_receipt_id, project_id, configured_trigger_name) do nothing
          returning *`,
       [
@@ -687,6 +691,7 @@ class PgDatabase implements Database {
         input.configuredTriggerName,
         input.prompt,
         input.inputs,
+        JSON.stringify(input.explicitInputs ?? []),
         input.triggerContext,
         input.outputContext,
         input.deadlineAt,
@@ -737,9 +742,9 @@ class PgDatabase implements Database {
           `insert into trigger_runs
            (id, organization_id, project_id, configuration_revision_id, provider_event_receipt_id,
            configured_trigger_name, outcome, status,
-            prompt, inputs, values, trigger_context, output_context, deadline_at, rejection, created_at, completed_at)
+            prompt, inputs, explicit_inputs, values, trigger_context, output_context, deadline_at, rejection, created_at, completed_at)
          values (coalesce($1, gen_random_uuid()), $2, $3, $4, $5, $6, 'rejected', 'rejected',
-                 $7, $8, '{}'::jsonb, $9, $10, null, $12, $11, $11)
+                 $7, $8, $9, '{}'::jsonb, $10, $11, null, $13, $12, $12)
          on conflict (provider_event_receipt_id, project_id, configured_trigger_name) do nothing
          returning *`,
           [
@@ -751,6 +756,7 @@ class PgDatabase implements Database {
             input.configuredTriggerName,
             input.prompt,
             input.inputs,
+            JSON.stringify(input.explicitInputs ?? []),
             input.triggerContext,
             input.outputContext,
             createdAt,
@@ -4711,6 +4717,7 @@ interface TriggerRunRow extends QueryRow {
   status: TriggerRunRecord["status"];
   prompt: string;
   inputs: unknown;
+  explicit_inputs: unknown;
   values: unknown;
   trigger_context: unknown;
   output_context: unknown;
@@ -4793,6 +4800,7 @@ function toTriggerRunRecord(row: TriggerRunRow): TriggerRunRecord {
     configuredTriggerName: row.configured_trigger_name,
     prompt: row.prompt,
     inputs: parseInvocationInputs(row.inputs),
+    explicitInputs: parseExplicitInputs(row.explicit_inputs),
     values: row.values,
     triggerContext: row.trigger_context,
     outputContext: row.output_context,

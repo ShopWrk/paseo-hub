@@ -49,6 +49,7 @@ describe("Discord Phase 1 trigger provider", () => {
       status: "accepted",
       prompt: "<@900> repo=hub agent=opus investigate",
       inputs: { repo: "hub", agent: "opus" },
+      explicitInputs: ["repo", "agent"],
     });
   });
 

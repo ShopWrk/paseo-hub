@@ -12,6 +12,7 @@ export interface AgentSessionRecord {
   agentId: string | null;
   workspaceId: string | null;
   compatibility: string;
+  agentCompatibility?: string;
   creationOptions: DaemonCreateAgentOptions;
   capabilityTokenHash: string;
   tools: readonly OutputToolDefinition[];

@@ -76,6 +76,7 @@ async function fixture() {
     target = "daemon",
     env: Record<string, string> = {},
     provider = "codex",
+    inheritAgent = false,
   ) {
     const executionId = randomUUID();
     const intent: LaunchMachineIntent = {
@@ -95,7 +96,11 @@ async function fixture() {
       outputContext: { arrival: executionId },
       configurationRevisionId: randomUUID(),
       hubConfig: {},
-      continuation: { key, compatibility: { target } },
+      continuation: {
+        key,
+        compatibility: { target },
+        agent: { inherit: inheritAgent, compatibility: { provider } },
+      },
     };
     await database.insertAgentExecution({
       id: executionId,
@@ -227,7 +232,7 @@ test("new-agent policy isolates arrivals and incompatible targets fail without r
 test("a continuing conversation keeps the agent selected on its first arrival", async () => {
   const f = await fixture();
   const first = await f.arrival("conversation", "daemon", {}, "codex");
-  const followUp = await f.arrival("conversation", "daemon", {}, "opencode");
+  const followUp = await f.arrival("conversation", "daemon", {}, "opencode", true);
   const created = await first.dispatch();
 
   expect(await followUp.dispatch()).toMatchObject({
@@ -236,6 +241,15 @@ test("a continuing conversation keeps the agent selected on its first arrival", 
   });
   expect(f.connection.creates).toHaveLength(1);
   expect(f.connection.creates[0]?.provider).toBe("codex");
+});
+
+test("an explicit agent change in a continuing conversation is rejected", async () => {
+  const f = await fixture();
+  await (await f.arrival("conversation", "daemon", {}, "codex")).dispatch();
+
+  await expect(
+    (await f.arrival("conversation", "daemon", {}, "opencode")).dispatch(),
+  ).rejects.toThrow("agent selection differs");
 });
 
 test("temporary environment credentials require a new agent instead of being reused", async () => {

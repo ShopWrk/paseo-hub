@@ -87,6 +87,7 @@ describe("Slack Phase 1 trigger provider", () => {
       status: "accepted",
       prompt: "<@UBOT> repo=hub agent=opus investigate",
       inputs: { repo: "hub", agent: "opus" },
+      explicitInputs: ["repo", "agent"],
     });
   });
 

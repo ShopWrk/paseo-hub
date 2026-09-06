@@ -57,10 +57,22 @@ export class AgentSessions {
         this.outputs.materialize(input.intent.allowOutputs, input.intent.outputContext),
       );
       const compatibility = fingerprint({ settings: policy.compatibility, tools });
+      const requestedAgentCompatibility = fingerprint(
+        policy.agent?.compatibility ?? input.intent.agent,
+      );
       let session = await this.database.findAgentSession(id);
       if (session && session.compatibility !== compatibility) {
         throw new AgentSessionError(
           "Continuation settings differ from the existing agent; use a different key or choose a new agent",
+        );
+      }
+      if (
+        session &&
+        policy.agent?.inherit !== true &&
+        session.agentCompatibility !== requestedAgentCompatibility
+      ) {
+        throw new AgentSessionError(
+          "Continuation agent selection differs from the existing agent; start a new conversation to choose another agent",
         );
       }
       if (!session) {
@@ -75,6 +87,7 @@ export class AgentSessions {
           agentId: null,
           workspaceId: null,
           compatibility,
+          agentCompatibility: requestedAgentCompatibility,
           tools,
           capabilityTokenHash: hashAgentExecutionCompletionToken(token),
           creationOptions: {

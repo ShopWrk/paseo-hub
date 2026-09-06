@@ -435,6 +435,7 @@ export const triggerRuns = pgTable(
     status: text().$type<"running" | "succeeded" | "failed" | "timed_out" | "rejected">().notNull(),
     prompt: text().notNull(),
     inputs: jsonb().notNull().default({}),
+    explicitInputs: jsonb("explicit_inputs").$type<readonly string[]>().notNull().default([]),
     values: jsonb().notNull().default({}),
     triggerContext: jsonb("trigger_context").notNull().default({}),
     outputContext: jsonb("output_context").notNull().default({}),
